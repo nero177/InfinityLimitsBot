@@ -166,15 +166,18 @@ async def process_name(message: Message, state: FSMContext) -> None:
 @form_router.message(Form.email)
 async def process_email(message: Message, state: FSMContext) -> None:
     await recycle_add(message=message, state=state)
-    data = await state.update_data(email=message.text)
-    msg = await message.answer("Введіть номер")
+    await state.update_data(email=message.text)
+    kb = [[KeyboardButton(text="Відправити мій номер", request_contact=True)]]
+    keyboard = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+    msg = await message.answer("Введіть номер", reply_markup=keyboard)
+
     await recycle_add(message=msg, state=state)
     await state.set_state(Form.phone)
 
-@form_router.message(Form.phone)
+@form_router.message(F.content_type.in_({'contact'}), Form.phone)
 async def process_phone(message: Message, state: FSMContext) -> None:
     await recycle_add(message=message, state=state)
-    data = await state.update_data(phone=message.text)
+    data = await state.update_data(phone=message.contact.phone_number)
     await summary(message=message, data=data)
     await state.clear()
 
