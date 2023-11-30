@@ -10,21 +10,12 @@ from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove, FSInputFile
 from aiogram.exceptions import TelegramBadRequest
 
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-
-# SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-
-# SAMPLE_SPREADSHEET_ID = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-# SAMPLE_RANGE_NAME = "Class Data!A2:E"
-
 load_dotenv()
+
+ADMIN_IDS = [679021494, 448279359]
 
 con = sqlite3.connect("app.db")
 cur = con.cursor()
@@ -32,11 +23,17 @@ cur.execute('CREATE TABLE IF NOT EXISTS applies(user_id INT, name VARCHAR(100), 
 
 form_router = Router()
 
+bot = Bot(token=os.environ.get("BOT_TOKEN"), parse_mode=ParseMode.HTML)
+dp = Dispatcher()
+
 class Form(StatesGroup):
     name = State()
     email = State()
     phone = State()
     recycle = State()
+
+class Spam(StatesGroup):
+    text = State()
 
 def new_apply(user_id, name, email, phone):
     user = cur.execute(f'SELECT * FROM applies WHERE user_id={user_id}').fetchall()
@@ -46,58 +43,6 @@ def new_apply(user_id, name, email, phone):
     else:
         cur.execute('UPDATE applies SET user_id=?, name=?, email=?, phone=? WHERE user_id=?', (user_id, name, email, phone, user_id,))
         con.commit()
-
-
-
-# If modifying these scopes, delete the file token.json.
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-
-# The ID and range of a sample spreadsheet.
-SAMPLE_SPREADSHEET_ID = "1Lgs-syGY_22oPH9rzPzPdIVyaoqke2cDVF9RYPyliqo"
-SAMPLE_RANGE_NAME = "Class Data!A2:E"
-
-def spreadsheet_init():
-  creds = None
-  # The file token.json stores the user's access and refresh tokens, and is
-  # created automatically when the authorization flow completes for the first
-  # time.
-  if os.path.exists("token.json"):
-    creds = Credentials.from_authorized_user_file("token.json", SCOPES)
-  # If there are no (valid) credentials available, let the user log in.
-  if not creds or not creds.valid:
-    if creds and creds.expired and creds.refresh_token:
-      creds.refresh(Request())
-    else:
-      flow = InstalledAppFlow.from_client_secrets_file(
-          "credentials.json", SCOPES
-      )
-      creds = flow.run_local_server(port=0)
-    # Save the credentials for the next run
-    with open("token.json", "w") as token:
-      token.write(creds.to_json())
-
-  try:
-    service = build("sheets", "v4", credentials=creds)
-
-    # Call the Sheets API
-    sheet = service.spreadsheets()
-    result = (
-        sheet.values()
-        .get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME)
-        .execute()
-    )
-    values = result.get("values", [])
-
-    if not values:
-      print("No data found.")
-      return
-
-    print("Name, Major:")
-    for row in values:
-      # Print columns A and E, which correspond to indices 0 and 4.
-      print(f"{row[0]}, {row[4]}")
-  except HttpError as err:
-    print(err)
 
 async def xlsx_save():
     file = 'applies.xlsx'
@@ -138,6 +83,14 @@ async def clear_recycle(state: FSMContext):
         except TelegramBadRequest:
             pass
 
+async def spam(text: str) -> None:
+    users = cur.execute('SELECT * FROM applies').fetchall()
+    for user in users: 
+        try: 
+            await bot.send_message(user[0], text)
+        except TelegramBadRequest: 
+            pass     
+
 @form_router.message(F.text.lower() == "почати спочатку")
 async def cancel_handler(message: Message, state: FSMContext) -> None:
     current_state = await state.get_state()
@@ -154,12 +107,49 @@ async def cancel_handler(message: Message, state: FSMContext) -> None:
 async def update_applied(message: Message, state: FSMContext):
     await command_start(message, state)
 
+@form_router.message(F.text.lower() == 'всі заявки')
+async def all_applies(message: Message):
+    file = FSInputFile('applies.xlsx')
+    await bot.send_document(chat_id=message.chat.id, document=file) 
+
+@form_router.message(F.text.lower() == 'скасувати', Spam.text)
+async def cancel(message: Message, state: FSMContext):
+    await message.answer("Скасовано.")
+    await command_start(message, state)
+    await state.clear()
+
+@form_router.message(F.text.lower() == 'розіслати повідомлення')
+async def start_spam(message: Message, state: FSMContext):
+    await state.set_state(Spam.text)
+
+    kb = [[KeyboardButton(text="Скасувати")]]
+    keyboard = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+
+    await message.answer('Введіть текст для розсилки', reply_markup=keyboard)
+    
+@form_router.message(Spam.text)
+async def spam_text(message: Message, state: FSMContext):
+    await spam(message.text)
+    await message.answer('Розсилка закінчена')
+    await state.clear()
+    await command_start(message, state)
+
 @form_router.message(CommandStart())
 async def command_start(message: Message, state: FSMContext) -> None:
-    # await spreadsheet_init()
     await state.update_data(recycle = {})
     await recycle_add(message=message, state=state)
-    kb = [[KeyboardButton(text="Почати спочатку")]]
+
+    is_admin = False
+
+    for admin_id in ADMIN_IDS:
+        if admin_id == message.chat.id:
+            is_admin = True
+
+    if is_admin:
+        kb = [[KeyboardButton(text="Почати спочатку")], [KeyboardButton(text="Всі заявки")], [KeyboardButton(text="Розіслати повідомлення")]]
+    else:
+        kb = [[KeyboardButton(text="Почати спочатку")]]
+
     keyboard = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
     msg = await message.answer("Ваше ім'я", reply_markup=keyboard)
     await recycle_add(message=msg, state=state)
@@ -197,17 +187,14 @@ async def summary(message: Message, data: Dict[str, Any], positive: bool = True)
     email = data["email"]
     phone = data["phone"]
     new_apply(message.chat.id, name, email, phone)
-    text = "Ви успішного записались на вебінар, в ближайший час з вами зв'яжеться менеджер."
-    users = cur.execute('SELECT * FROM applies').fetchall()
-    print(users)
+    text = "Ви успішного записались на вебінар, в найближчий час з вами зв'яжеться менеджер. \n https://t.me/+qQIJM2_AeUExYWYy"
+
     kb = [[KeyboardButton(text="Записатися знову")]]
     keyboard = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
     await message.answer(text=text, reply_markup=keyboard)
     await xlsx_save()
 
 async def main():
-    bot = Bot(token=os.environ.get("BOT_TOKEN"), parse_mode=ParseMode.HTML)
-    dp = Dispatcher()
     dp.include_router(form_router)
     await dp.start_polling(bot)
 
