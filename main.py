@@ -37,10 +37,16 @@ class Spam(StatesGroup):
 
 def new_apply(user_id, name, email, phone):
     user = cur.execute(f'SELECT * FROM applies WHERE user_id={user_id}').fetchall()
+
+    # logging.info('New apply with data', {user_id, name, email, phone})
+    print(user)
+
     if len(user) == 0:
+        print('inserting')
         cur.execute('INSERT INTO applies VALUES(?,?,?,?)', (user_id, name, email, phone,))
         con.commit()
     else:
+        print('updating')
         cur.execute('UPDATE applies SET user_id=?, name=?, email=?, phone=? WHERE user_id=?', (user_id, name, email, phone, user_id,))
         con.commit()
 
@@ -53,22 +59,23 @@ async def xlsx_save():
     data = cur.execute('SELECT * FROM applies').fetchall()
     for user in data:
         users_id.append(str(user[0]))
-        users_name.append(user[1])
-        users_email.append(user[2])
-        users_phone.append(user[3])
+        users_name.append(str(user[1]))
+        users_email.append(str(user[2]))
+        users_phone.append(str(user[3]))
     
-    new_dat = {'user_id' : users_id,
+    new_dat = {
                'name' : users_name,
                'email' : users_email,
                'phone' : users_phone}
     
     df_new = pd.DataFrame(new_dat)
+    df_new.to_excel(file, index=False, header=True)
+
     # if os.path.exists(file):
     #     df_existing = pd.read_excel(file)
     #     df_updated = pd.concat([df_existing, df_new], ignore_index=True)
     # else:
     #     df_updated = df_new
-    df_new.to_excel(file, index=False, header=True)
 
 async def recycle_add(message: Message, state: FSMContext):
     pass
