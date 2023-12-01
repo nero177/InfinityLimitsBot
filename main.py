@@ -15,7 +15,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 load_dotenv()
 
-ADMIN_IDS = [679021494, 448279359]
+ADMIN_IDS = [679021494, 491021529, 686443228]
 
 con = sqlite3.connect("app.db")
 cur = con.cursor()
