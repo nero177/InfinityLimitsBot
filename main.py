@@ -192,7 +192,8 @@ async def process_phone(message: Message, state: FSMContext) -> None:
         match = phone_regex.match(message.text)
         if match is None:
             await message.answer("Введіть валідний номер")
-            await process_phone(Message(), state)   
+            message.text = ''
+            await process_phone(message, state)   
 
         data = await state.update_data(phone=message.text)
     await summary(message=message, data=data)
