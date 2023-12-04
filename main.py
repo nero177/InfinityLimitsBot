@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 import pandas as pd
 import os
+import re
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, F, Router, html
@@ -187,8 +188,13 @@ async def process_phone(message: Message, state: FSMContext) -> None:
     if message.content_type == 'contact':
         data = await state.update_data(phone=message.contact.phone_number)
     elif message.content_type == 'text':
-        data = await state.update_data(phone=message.text)
+        phone_regex = re.compile('^[0-9]{12}$')
+        match = phone_regex.match(message.text)
+        if match is None:
+            await message.answer("Введіть валідний номер")
+            await process_phone(Message(), state)   
 
+        data = await state.update_data(phone=message.text)
     await summary(message=message, data=data)
     await state.clear()
 
