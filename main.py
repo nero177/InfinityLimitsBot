@@ -12,6 +12,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove, FSInputFile
 from aiogram.exceptions import TelegramBadRequest
+from datetime import datetime
 
 load_dotenv()
 
@@ -19,7 +20,7 @@ ADMIN_IDS = [679021494, 491021529, 686443228]
 
 con = sqlite3.connect("app.db")
 cur = con.cursor()
-cur.execute('CREATE TABLE IF NOT EXISTS applies(user_id INT, name VARCHAR(100), email VARCHAR(100), phone VARCHAR(100))')
+cur.execute('CREATE TABLE IF NOT EXISTS applies(user_id INT, name VARCHAR(100), email VARCHAR(100), phone VARCHAR(100), date VARCHAR(200))')
 
 form_router = Router()
 
@@ -38,44 +39,42 @@ class Spam(StatesGroup):
 def new_apply(user_id, name, email, phone):
     user = cur.execute(f'SELECT * FROM applies WHERE user_id={user_id}').fetchall()
 
-    # logging.info('New apply with data', {user_id, name, email, phone})
     print(user)
+
+    now = datetime.now()
+    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
 
     if len(user) == 0:
         print('inserting')
-        cur.execute('INSERT INTO applies VALUES(?,?,?,?)', (user_id, name, email, phone,))
+        cur.execute('INSERT INTO applies VALUES(?,?,?,?,?)', (user_id, name, email, phone, dt_string))
         con.commit()
     else:
         print('updating')
-        cur.execute('UPDATE applies SET user_id=?, name=?, email=?, phone=? WHERE user_id=?', (user_id, name, email, phone, user_id,))
+        cur.execute('UPDATE applies SET user_id=?, name=?, email=?, phone=?, date=? WHERE user_id=?', (user_id, name, email, phone, dt_string, user_id,))
         con.commit()
 
 async def xlsx_save():
     file = 'applies.xlsx'
-    users_id = []
     users_name = []
     users_email = []
     users_phone = []
+    users_date = []
+
     data = cur.execute('SELECT * FROM applies').fetchall()
     for user in data:
-        users_id.append(str(user[0]))
         users_name.append(str(user[1]))
         users_email.append(str(user[2]))
         users_phone.append(str(user[3]))
-    
+        users_date.append(str(user[4]))
+
     new_dat = {
                'name' : users_name,
                'email' : users_email,
-               'phone' : users_phone}
+               'phone' : users_phone,
+               'date' : users_date}
     
     df_new = pd.DataFrame(new_dat)
     df_new.to_excel(file, index=False, header=True)
-
-    # if os.path.exists(file):
-    #     df_existing = pd.read_excel(file)
-    #     df_updated = pd.concat([df_existing, df_new], ignore_index=True)
-    # else:
-    #     df_updated = df_new
 
 async def recycle_add(message: Message, state: FSMContext):
     pass
@@ -159,7 +158,9 @@ async def command_start(message: Message, state: FSMContext) -> None:
         kb = [[KeyboardButton(text="Почати спочатку")]]
 
     keyboard = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-    msg = await message.answer("Ваше ім'я", reply_markup=keyboard)
+    msg = await message.answer("Привіт👋 З тобою команда Infinity Limits Trade 📊 \n\nМи раді повідомити, що 6 грудня в 19:00 відбудеться наш вебінар, де ми обговоримо надзвичайно важливі теми: \n\n1️⃣ Знайомство з командою Infinity Limits Trade. \n2️⃣ Актуальний стан криптовалютного та форекс ринків. \n3️⃣ Наші очікування та цілі. \n4️⃣ Стратегії торгівлі в зимові вихідні. \n\n⚠️ Не пропусти свій шанс стати учасником розіграшу 10 перспективних криптовалют на загальну суму понад 500$! \n\n👉 Реєструйся зараз і долучайся до захоплюючого світу трейдингу разом з нами. <b>Чекаємо на тебе!</b> 😊")
+    msg2 = await message.answer("Ваше ім'я", reply_markup=keyboard)
+    await recycle_add(message=msg2, state=state)
     await recycle_add(message=msg, state=state)
     await state.set_state(Form.name)
 
@@ -167,7 +168,7 @@ async def command_start(message: Message, state: FSMContext) -> None:
 async def process_name(message: Message, state: FSMContext) -> None:
     await recycle_add(message=message, state=state)
     await state.update_data(name=message.text)
-    msg = await message.answer("Введіть почту")
+    msg = await message.answer("Введіть пошту")
     await recycle_add(message=msg, state=state)
     await state.set_state(Form.email)
 
