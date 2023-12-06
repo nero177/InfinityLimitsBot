@@ -95,7 +95,7 @@ async def spam(text: str) -> None:
     users = cur.execute('SELECT * FROM applies').fetchall()
     for user in users: 
         try: 
-            await bot.send_message(user[0], text)
+            await bot.send_message(user[0], text, parse_mode=ParseMode.HTML)
         except TelegramBadRequest: 
             pass     
 
