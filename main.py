@@ -11,7 +11,10 @@ from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove, FSInputFile
+from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup, \
+ReplyKeyboardRemove, FSInputFile, InlineKeyboardMarkup, \
+InlineKeyboardButton, CallbackQuery
+
 from aiogram.exceptions import TelegramBadRequest
 from datetime import datetime
 
@@ -159,9 +162,27 @@ async def command_start(message: Message, state: FSMContext) -> None:
         kb = [[KeyboardButton(text="Почати спочатку")]]
 
     keyboard = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-    msg = await message.answer("Ваше ім'я", reply_markup=keyboard)
+    inlineKeyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Так", callback_data="ask_user_yes")], [InlineKeyboardButton(text="Ні", callback_data="ask_user_no")]])
+
+    msg = await message.answer("Вітаємо у Infinity Limits 👋\nМи навчаємо крок за кроком і допомагаємо отримати свій перший капітал для трейдингу 📊", reply_markup=keyboard)
+    msg2 = await message.answer("Чи хотіли б ви покращити свої знання в світі трейдингу?", reply_markup=inlineKeyboard)
     await recycle_add(message=msg, state=state)
-    await state.set_state(Form.name)
+    await recycle_add(message=msg2, state=state)
+    # await state.set_state(Form.name)
+
+@dp.callback_query()
+async def process_callback_answer(callback_query: CallbackQuery, state: FSMContext):
+    data = callback_query.data
+
+    if(data == 'ask_user_yes'):
+        msg = await bot.send_message(callback_query.from_user.id, "Ваше ім'я")
+        await recycle_add(message=msg, state=state)
+        await state.set_state(Form.name)
+    elif(data == 'ask_user_no'):
+        msg = await bot.send_message(callback_query.from_user.id, "Навчання в трейдингу є важливою складовою успіху в цій сфері.\n\nПросто сигнали не працюють без аналізу фінансових ринків та прийняття обґрунтованих торгових рішень.\n\n👉 Дай свій фідбек - @InfinityLimits")
+        await recycle_add(message=msg, state=state)
+        state.clear()
+        await command_start(callback_query.message, state)
 
 @form_router.message(Form.name)
 async def process_name(message: Message, state: FSMContext) -> None:
@@ -215,7 +236,7 @@ async def summary(message: Message, data: Dict[str, Any], positive: bool = True)
     email = data["email"]
     phone = data["phone"]
     new_apply(message.chat.id, name, email, phone)
-    text = "Ви успішного записались на вебінар, в найближчий час з вами зв'яжеться менеджер. \n https://t.me/+qQIJM2_AeUExYWYy"
+    text = "Авторський курс з ключовими стратегіями та порадами. Матеріали від провідного експерта у галузі Форекс 👉 https://youtu.be/rOtwT96HPSg\n\nВи успішного записались на курси, в найближчий час з вами зв'яжеться менеджер.\nлінк -  https://t.me/+qQIJM2_AeUExYWYy"
 
     kb = [[KeyboardButton(text="Записатися знову")]]
     keyboard = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
