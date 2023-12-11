@@ -168,19 +168,20 @@ async def command_start(message: Message, state: FSMContext) -> None:
     msg2 = await message.answer("Чи хотіли б ви покращити свої знання в світі трейдингу?", reply_markup=inlineKeyboard)
     await recycle_add(message=msg, state=state)
     await recycle_add(message=msg2, state=state)
-    # await state.set_state(Form.name)
 
 @dp.callback_query()
 async def process_callback_answer(callback_query: CallbackQuery, state: FSMContext):
     data = callback_query.data
 
+    print(data)
+
     if(data == 'ask_user_yes'):
-        msg = await bot.send_message(callback_query.from_user.id, "Ваше ім'я")
-        await recycle_add(message=msg, state=state)
+        await bot.send_message(callback_query.from_user.id, "Ваше ім'я")
         await state.set_state(Form.name)
     elif(data == 'ask_user_no'):
-        msg = await bot.send_message(callback_query.from_user.id, "Навчання в трейдингу є важливою складовою успіху в цій сфері.\n\nПросто сигнали не працюють без аналізу фінансових ринків та прийняття обґрунтованих торгових рішень.\n\n👉 Дай свій фідбек - @InfinityLimits")
-        await recycle_add(message=msg, state=state)
+        inlineKb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Почати спочатку", callback_data="again")]])
+        await bot.send_message(callback_query.from_user.id, "Навчання в трейдингу є важливою складовою успіху в цій сфері.\n\nПросто сигнали не працюють без аналізу фінансових ринків та прийняття обґрунтованих торгових рішень.\n\n👉 Дай свій фідбек - @InfinityLimits", reply_markup=inlineKb)
+    elif(data == 'again'):
         state.clear()
         await command_start(callback_query.message, state)
 
