@@ -210,7 +210,7 @@ async def process_phone(message: Message, state: FSMContext) -> None:
     if message.content_type == 'contact':
         data = await state.update_data(phone=message.contact.phone_number)
     elif message.content_type == 'text':
-        phone_regex = re.compile('^[0-9]{12}$')
+        phone_regex = re.compile('^\+?\d+$')
         match = phone_regex.match(message.text)
         if match is None:
             await message.answer("Введіть валідний номер")
