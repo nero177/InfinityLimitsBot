@@ -2,8 +2,7 @@ import asyncio, logging, sys, sqlite3
 from typing import Any, Dict
 
 import pandas as pd
-import os
-import re
+import os, re, time
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, F, Router, html
@@ -164,8 +163,9 @@ async def command_start(message: Message, state: FSMContext) -> None:
     keyboard = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
     inlineKeyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Так", callback_data="ask_user_yes")], [InlineKeyboardButton(text="Ні", callback_data="ask_user_no")]])
 
-    msg = await message.answer("Вітаємо у Infinity Limits 👋\nМи навчаємо крок за кроком і допомагаємо отримати свій перший капітал для трейдингу 📊", reply_markup=keyboard)
-    msg2 = await message.answer("Чи хотіли б ви покращити свої знання в світі трейдингу?", reply_markup=inlineKeyboard)
+    msg = await message.answer("Вітаємо у  Infinity Limits  🌟\n\nГотовий покращити свої фінансові навички і розпочати шлях до капіталу в 100,000 доларів?\n\nЧудово! Залиш свої дані нижче, і отримай перший урок з нашого ексклюзивного курсу абсолютно безкоштовно.\n\n🔒 Ми гарантуємо конфіденційність твоїх даних. Після введення, ти отримаєш посилання на твій перший урок, який допоможе тобі розпочати свій шлях до фінансового успіху. \n\nЗа нашим індивідуальним планом можно отримати в управління кошти вже за 2 місяці 🔥\n\n🚀 Разом ми будуємо твій капітал та досягаємо нових фінансових висот! 📈", reply_markup=keyboard)
+    time.sleep(10)
+    msg2 = await message.answer("Готові почати перегляд авторського курсу від ILT та досягнути цілі в 100000$ в трейдингу?", reply_markup=inlineKeyboard)
     await recycle_add(message=msg, state=state)
     await recycle_add(message=msg2, state=state)
 
