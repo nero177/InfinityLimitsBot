@@ -2,7 +2,7 @@ import asyncio, logging, sys, sqlite3
 from typing import Any, Dict
 
 import pandas as pd
-import os, re, time
+import os, re, time, asyncio
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, F, Router, html
@@ -41,8 +41,6 @@ class Spam(StatesGroup):
 
 def new_apply(user_id, name, email, phone):
     user = cur.execute(f'SELECT * FROM applies WHERE user_id={user_id}').fetchall()
-
-    print(user)
 
     now = datetime.now()
     dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
@@ -196,10 +194,24 @@ async def process_name(message: Message, state: FSMContext) -> None:
 @form_router.message(Form.email)
 async def process_email(message: Message, state: FSMContext) -> None:
     await recycle_add(message=message, state=state)
-    await state.update_data(email=message.text)
+    data = await state.update_data(email=message.text)
+
+    async def timeout_callback():
+        print('task')
+        await summary(message=message, data=data)
+        await recycle_add(message=message, state=state)
+        await state.set_state(Form.phone)
+
     kb = [[KeyboardButton(text="Відправити мій номер", request_contact=True)]]
     keyboard = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
     msg = await message.answer("Введіть номер", reply_markup=keyboard)
+
+    timeout_task = asyncio.create_task(asyncio.sleep(120))
+    timeout_task.add_done_callback(lambda _: asyncio.ensure_future(timeout_callback()))
+
+    # if message.text:
+    #     timeout_task.cancel()
+
     await recycle_add(message=msg, state=state)
     await state.set_state(Form.phone)
 
@@ -235,7 +247,12 @@ async def process_phone(message: Message, state: FSMContext) -> None:
 async def summary(message: Message, data: Dict[str, Any], positive: bool = True) -> None:
     name = data["name"]
     email = data["email"]
-    phone = data["phone"]
+
+    if "phone" in data:
+        phone = data["phone"]
+    else:
+        phone = ''
+
     new_apply(message.chat.id, name, email, phone)
     text = "Авторський курс з ключовими стратегіями та порадами. Матеріали від провідного експерта у галузі Форекс 👉 https://youtu.be/--lqBskInHU\n\nВи успішного записались на курси, в найближчий час з вами зв'яжеться менеджер.\n\nА також, підписуйся на наш телеграм канал, в якому ти знайдеш цікаві та актуальні новини зі світу криптовалюти та Форексу https://t.me/+qQIJM2_AeUExYWYy"
 
